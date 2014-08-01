@@ -73,29 +73,31 @@ init_lock(void *unused)
 	mtx_init(&lgname_lock, "init_lock", NULL, MTX_DEF);
 }
 
-int
-sys_set_lgname(struct thread *td, struct set_lgname_args *uap)
-{
+/*
 
-/*	 
+ SYSTEM CALL NAME
+   sys_set_lgname
+
  DESC
-   set the lockgroup name for the given process. 
+   set the lockgroup name for the given process.
    lockgroup is stored as part of the thread struct in sys/proc.h
 
  CONDITIONS
    1. lgn is at most 8 characters
    2. inherited by children (by virtue of being stored in the thread struct)
    3. If not root:
-	a. You may set your lgn to an existing lgn if you created that lgn
-	b. If an lgn doesnt alread exist, you can create it
-	c. You may set the lgn of any process that you own
+        a. You may set your lgn to an existing lgn if you created that lgn
+        b. If an lgn doesnt alread exist, you can create it
+        c. You may set the lgn of any process that you own
    4. If you are root:
-	a. You may set your lgn to anything you want even an existing one not owned by you
-	b. You may set the lgn of any process, even if it already has one set
+        a. You may set your lgn to anything you want even an existing one not owned by you
+        b. You may set the lgn of any process, even if it already has one set
    5. if pid is zero, it means 'set lgn for the current process'
 */
 
-
+int
+sys_set_lgname(struct thread *td, struct set_lgname_args *uap)
+{
 	if (!valid(uap)) {
 		return EINVAL;
 	}
@@ -149,6 +151,7 @@ sys_set_lgname(struct thread *td, struct set_lgname_args *uap)
 			}
 		}
 
+
 		memset(found, 0, sizeof(struct lock_group_names));
 		found->owner = td->td_ucred->cr_uid;
 		memcpy(found->lg_name, usr_buf, 8);
@@ -156,20 +159,21 @@ sys_set_lgname(struct thread *td, struct set_lgname_args *uap)
 		mtx_unlock(&lgname_lock);
 		if (a_lg == NULL) return ESRCH; 
 		memcpy(a_lg, usr_buf, 8);
+	        printf("%s\n", usr_buf);
+        	printf("testing");
 		return 0;
 	}
-	 mtx_unlock(&lgname_lock);
+	mtx_unlock(&lgname_lock);
 	
-	printf("%s\n", usr_buf); 
-	printf("testing");
 	return(0);
 }
+
 
 int
 sys_get_lgname(struct thread *td, struct get_lgname_args *uap)
 {
 	printf("sys_get_lgname");
-        return(EPERM);
+	return (copyout(td->td_proc->lockgroupname, uap->lgn, 9));
 }
 
 int
