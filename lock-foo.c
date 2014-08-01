@@ -104,7 +104,7 @@ sys_set_lgname(struct thread *td, struct set_lgname_args *uap)
 	char usr_buf[9];
 	struct lock_group_names *found = lgnames_root, *current = NULL;
 	size_t copied = 0; 
-/*	char *lgname = NULL; */
+	char *a_lg = NULL;
 
 	if ((error = copyinstr(uap->lgn, &usr_buf, 8, &copied))) {
 		return (error);
@@ -113,16 +113,16 @@ sys_set_lgname(struct thread *td, struct set_lgname_args *uap)
 	usr_buf[8]=0;
 	
 	mtx_lock(&lgname_lock);
-	printf("found=");
 	found = find_lgnames(usr_buf);
-	printf("if (found != NULL)");
 	if (found != NULL) {
-		if (td->td_ucred->cr_uid == 0 || (td->td_ucred->cr_uid == found->owner)){ 
-			current = find_lgnames(td->td_proc->lockgroupname);
+		if (td->td_ucred->cr_uid == 0 || (td->td_ucred->cr_uid == found->owner)){
+			a_lg = get_lgn(uap->pid, td->td_proc->lockgroupname); 
+			if (a_lg == NULL) return ESRCH;
+			current = find_lgnames(a_lg);
 			if (current){ 
 				release_locks(current);
 			}
-			memcpy(td->td_proc->lockgroupname, usr_buf, 8);
+			memcpy(a_lg, usr_buf, 8);
 			mtx_unlock(&lgname_lock);
 			return(0);
 	    	}
@@ -152,10 +152,10 @@ sys_set_lgname(struct thread *td, struct set_lgname_args *uap)
 		memset(found, 0, sizeof(struct lock_group_names));
 		found->owner = td->td_ucred->cr_uid;
 		memcpy(found->lg_name, usr_buf, 8);
-	/*	a_lg = get_lgn(uap->pid, td->td_proc->lockgroupname); */
+		a_lg = get_lgn(uap->pid, td->td_proc->lockgroupname);
 		mtx_unlock(&lgname_lock);
-	/*	if (a_lg == NULL) return ESRCH;  */
-	/*	memcpy(a_lg, usr_buf, 8);  */
+		if (a_lg == NULL) return ESRCH; 
+		memcpy(a_lg, usr_buf, 8);
 		return 0;
 	}
 	 mtx_unlock(&lgname_lock);
