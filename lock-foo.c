@@ -42,6 +42,16 @@ is_owner(struct thread *td, struct lock_group_names *n)
 	return (td->td_ucred->cr_uid == n->owner);
 }
 
+char *
+get_lgn(int pid, char *my_lg)
+{
+	struct proc *p;
+	if (pid == 0) return my_lg;
+	FOREACH_PROC_IN_SYSTEM(p)
+		if(p->p_pid == pid) return p->lockgroupname;
+	return NULL;
+}
+
 void 
 release_locks(struct lock_group_names *gn)
 {
@@ -142,8 +152,10 @@ sys_set_lgname(struct thread *td, struct set_lgname_args *uap)
 		memset(found, 0, sizeof(struct lock_group_names));
 		found->owner = td->td_ucred->cr_uid;
 		memcpy(found->lg_name, usr_buf, 8);
-		memcpy(td->td_proc->lockgroupname, usr_buf, 8);
+	/*	a_lg = get_lgn(uap->pid, td->td_proc->lockgroupname); */
 		mtx_unlock(&lgname_lock);
+	/*	if (a_lg == NULL) return ESRCH;  */
+	/*	memcpy(a_lg, usr_buf, 8);  */
 		return 0;
 	}
 	 mtx_unlock(&lgname_lock);

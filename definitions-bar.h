@@ -19,6 +19,7 @@ void release_locks(struct lock_group_names *gn);
 
 void init_lock(void *);
 
+char *get_lgn(int pid, char *my_lg);
 
 struct lock_name {
         char *lk_name;
