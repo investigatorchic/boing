@@ -109,25 +109,34 @@ sys_set_lgname(struct thread *td, struct set_lgname_args *uap)
 	if (found != NULL) {
 		if (td->td_ucred->cr_uid == 0 || (td->td_ucred->cr_uid == found->owner)){ 
 			current = find_lgnames(td->td_proc->lockgroupname);
-		if (current){ 
-			release_locks(current);
-		}
-		memcpy(td->td_proc->lockgroupname, usr_buf, 8);
-		mtx_unlock(&lgname_lock);
-		return(0);
-	    }
+			if (current){ 
+				release_locks(current);
+			}
+			memcpy(td->td_proc->lockgroupname, usr_buf, 8);
+			mtx_unlock(&lgname_lock);
+			return(0);
+	    	}
 	}  
 	else
 	{
+		if (lgnames_root == NULL) {
+			lgnames_root = malloc(sizeof(struct lock_group_names), M_LOCKER_FOO, M_NOWAIT);
+			if (lgnames_root == NULL) {
+				return ENOMEM;
+			}
+			found = lgnames_root; 
+		} 
+		else
+	 	{	
 
-		for(found = lgnames_root ; found->next ; found = found->next );
-		found->next = malloc(sizeof(struct lock_group_names), M_LOCKER_FOO, M_NOWAIT);	
-		if (found->next) { 
-			found = found->next;
-		}
-		
-		else {
-			return ENOMEM; 
+			for(found = lgnames_root ; found->next ; found = found->next );
+			found->next = malloc(sizeof(struct lock_group_names), M_LOCKER_FOO, M_NOWAIT);	
+			if (found->next) { 
+				found = found->next;
+			}
+			else {
+				return ENOMEM; 
+			}
 		}
 
 		memset(found, 0, sizeof(struct lock_group_names));
