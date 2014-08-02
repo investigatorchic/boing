@@ -73,6 +73,25 @@ init_lock(void *unused)
 	mtx_init(&lgname_lock, "init_lock", NULL, MTX_DEF);
 }
 
+int 
+count_locks(struct lock_name *lock_root) 
+{
+        int count = 0;
+        if (lock_root) {
+        	struct lock_name *node = NULL;
+        	for (node = lock_root->next; node; node = node->next)
+               	{
+              		++count;
+                }
+        }
+        else
+        {
+                return EPERM;
+        }
+        return count;
+}
+
+
 /*
 
  SYSTEM CALL NAME
@@ -107,18 +126,24 @@ sys_set_lgname(struct thread *td, struct set_lgname_args *uap)
 	struct lock_group_names *found = lgnames_root, *current = NULL;
 	size_t copied = 0; 
 	char *a_lg = NULL;
+	memset(usr_buf, 0, 9);
 
 	if ((error = copyinstr(uap->lgn, &usr_buf, 8, &copied))) {
 		return (error);
 	}
 
-	usr_buf[8]=0;
 	mtx_lock(&lgname_lock);
 	found = find_lgnames(usr_buf);
 	
+	printf("%s\n", usr_buf);
+        printf("pre-if_testing");
+	
 	if (found == NULL) {
-		
+ 	
+		printf("found == NULL");
+			
                 if (lgnames_root == NULL) {
+			printf("lgnames_root == NULL");
                         lgnames_root = malloc(sizeof(struct lock_group_names), M_LOCKER_FOO, M_NOWAIT);
                         if (lgnames_root == NULL) {
                                 return ENOMEM;
@@ -127,6 +152,7 @@ sys_set_lgname(struct thread *td, struct set_lgname_args *uap)
                 }
                 else
                 {
+			printf("found != NULL");
                         for(found = lgnames_root ; found->next ; found = found->next );
                         found->next = malloc(sizeof(struct lock_group_names), M_LOCKER_FOO, M_NOWAIT);
                         if (found->next) {
@@ -136,23 +162,26 @@ sys_set_lgname(struct thread *td, struct set_lgname_args *uap)
                                 return ENOMEM;
                         }
                 }
-
+		printf("setting memory");
 
                 memset(found, 0, sizeof(struct lock_group_names));
                 found->owner = td->td_ucred->cr_uid;
                 memcpy(found->lg_name, usr_buf, 8);
                 a_lg = get_lgn(uap->pid, td->td_proc->lockgroupname);
                 mtx_unlock(&lgname_lock);
-                if (a_lg == NULL) return ESRCH;
-                memcpy(a_lg, usr_buf, 8);
-		
+                printf("lgname_unlocked");
+		if (a_lg == NULL){
+
+                	memcpy(a_lg, usr_buf, 8);
+		}
 		printf("%s\n", usr_buf);
-                printf("testing");
+                printf("if_testing");
 
                 return 0;
 	}  
 	else
 	{
+		printf("before is_root or is_owner");
 		if (is_root(td) || is_owner(td,found)){
                         a_lg = get_lgn(uap->pid, td->td_proc->lockgroupname);
                         if (a_lg == NULL) return ESRCH;
@@ -162,6 +191,8 @@ sys_set_lgname(struct thread *td, struct set_lgname_args *uap)
                         }
                         memcpy(a_lg, usr_buf, 8);
                         mtx_unlock(&lgname_lock);
+			printf("%s\n", usr_buf);
+                	printf("else_testing");
                         return(0);
 		}
         }
@@ -181,6 +212,58 @@ sys_get_lgname(struct thread *td, struct get_lgname_args *uap)
 int
 sys_create_lock(struct thread *td, struct create_lock_args *uap)
 {
+	int error = EINVAL;
+        char usr_buf[256];
+	size_t copied = 0;
+	int lock_count = 0;
+	struct lock_group_names *found = NULL;
+	struct lock_name *new_lock = NULL, *present_lock = NULL;
+
+	memset(usr_buf, 0, 256);
+	if ((error = copyinstr(uap->name, &usr_buf, 255, &copied)))
+                return (error);
+
+	mtx_lock(&lgname_lock);
+
+	found = find_lgnames(td->td_proc->lockgroupname);
+	if (!found) return EPERM;
+	
+	lock_count = count_locks(found->lname_root);
+	if (lock_count==EPERM || lock_count >= 32) return EPERM;
+
+	if (found->lname_root == NULL) {
+		found->lname_root = malloc(sizeof(struct lock_name), M_LOCKER_FOO, M_NOWAIT);
+		if (found->lname_root == NULL) { 
+			mtx_unlock(&lgname_lock); 
+			return ENOMEM; 
+		}
+		new_lock = found->lname_root;
+		memset(found->lname_root, 0, sizeof(struct lock_name));
+		found->lname_root->perms = uap->perms;
+		found->lname_root->creator = td->td_ucred->cr_uid;
+		found->lname_root->lk_name = strdup(usr_buf, M_LOCKER_FOO);
+		mtx_init(&(found->lname_root->mutex), "int_locking", NULL, MTX_DEF);
+		mtx_unlock(&lgname_lock);
+		return 0;
+	}
+	else
+	{
+		present_lock->next = malloc(sizeof(struct lock_name), M_LOCKER_FOO, M_NOWAIT);
+		if (present_lock->next == NULL) { 
+			mtx_unlock(&lgname_lock); 
+			return ENOMEM; 
+		}
+		memset(present_lock->next, 0, sizeof(struct lock_name));
+		mtx_init(&(present_lock->next->mutex), "int_locking", NULL, MTX_DEF);
+		present_lock->next->perms = uap->perms;
+		present_lock->next->creator = td->td_ucred->cr_uid;
+		present_lock->next->lk_name = strdup(usr_buf, M_LOCKER_FOO);
+		mtx_unlock(&lgname_lock);
+		return 0;
+	}
+
+	mtx_unlock(&lgname_lock); 
+
 	printf("sys_create_lock");
         return(EPERM);
 }

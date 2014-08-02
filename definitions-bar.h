@@ -7,6 +7,26 @@
 
 MALLOC_DECLARE(M_LOCKER_FOO);
 
+struct lock_name {
+        char *lk_name;
+        char  state;
+        int   perms;
+        uid_t   creator;
+        pid_t   heldby;
+        struct lock_name *next;
+        struct mtx      mutex;
+};
+
+struct lock_group_names {
+        char lg_name[9];
+        int pid;
+        uid_t                    owner;
+        struct lock_group_names *next;
+        struct lock_name *lname_root;
+
+};
+
+
 int valid(struct set_lgname_args *uap);
 
 struct lock_group_names * find_lgnames(char *lgn);
@@ -21,21 +41,8 @@ void init_lock(void *);
 
 char *get_lgn(int pid, char *my_lg);
 
-struct lock_name {
-        char *lk_name;
-        char  state;
-        struct lock_name *next;
-	struct mtx 	mutex;
-};
+int count_locks(struct lock_name *lock_root);
 
-struct lock_group_names {
-        char lg_name[9];
-        int pid;
-	uid_t 	 	 	 owner;
-        struct lock_group_names *next;
-        struct lock_name *lname_root;
-
-};
 
 
 
