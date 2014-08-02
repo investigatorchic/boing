@@ -118,9 +118,6 @@ sys_set_lgname(struct thread *td, struct set_lgname_args *uap)
 	
 	if (found == NULL) {
 		
-		printf("%s\n", usr_buf);
-                printf("testing");
-    
                 if (lgnames_root == NULL) {
                         lgnames_root = malloc(sizeof(struct lock_group_names), M_LOCKER_FOO, M_NOWAIT);
                         if (lgnames_root == NULL) {
