@@ -43,7 +43,7 @@ char *get_lgn(int pid, char *my_lg);
 
 int count_locks(struct lock_name *lock_root);
 
-
+struct lock_name *find_lock(struct lock_name *lname_root, char *lk_name);
 
 
 

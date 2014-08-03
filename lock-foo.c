@@ -91,6 +91,16 @@ count_locks(struct lock_name *lock_root)
         return count;
 }
 
+struct lock_name 
+*find_lock(struct lock_name *lname_root, char *lk_name)
+{
+	if (!lk_name) return NULL;
+	if (!lname_root) return NULL;
+	for( ; lname_root && lname_root->lk_name && strcmp(lname_root->lk_name, lk_name) ; lname_root = lname_root->next) ;
+	return lname_root;
+}
+
+
 
 /*
 
@@ -271,8 +281,46 @@ sys_create_lock(struct thread *td, struct create_lock_args *uap)
 int
 sys_set_lock(struct thread *td, struct set_lock_args *uap)
 {
-	printf("sys_set_lock");
-        return(EPERM);
+	int error = EINVAL;
+        char usr_buf[256];
+	size_t copied = 0;
+        struct lock_group_names *found = NULL;
+        struct lock_name *lock = NULL;
+
+	memset(usr_buf, 0, 256);
+	if ((error = copyinstr(uap->name, &usr_buf, 255, &copied)))
+                return (error);
+
+	mtx_lock(&lgname_lock);
+
+        found = find_lgnames(td->td_proc->lockgroupname);
+        if (found) {
+		lock = find_lock(found->lname_root, usr_buf);
+                if (lock) {
+			if (mtx_owned(&(lock->mutex))) {
+				return 0;
+			}
+			if (lock->perms != 0 && lock->creator != td->td_ucred->cr_uid && !td->td_ucred->cr_uid == 0) {
+				mtx_unlock(&lgname_lock);
+				return EPERM;
+			}
+
+			if (mtx_trylock(&(lock->mutex)) == 0) { 
+				if (uap->slpflg) { 
+					mtx_unlock(&lgname_lock); 
+					mtx_lock(&(lock->mutex));
+					return 0;
+				}
+			}
+			else { 
+				return 0;
+			}
+		}
+	}
+
+	mtx_unlock(&lgname_lock);
+        printf("sys_set_lock");
+	return(EPERM);
 }
 
 int
