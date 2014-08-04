@@ -173,10 +173,12 @@ sys_set_lgname(struct thread *td, struct set_lgname_args *uap)
                 printf("lgname_unlocked");
 		if (a_lg == NULL){
 			printf("a_lag == NULL");
+                	mtx_unlock(&lgname_lock);
 			return ESRCH;
-                	memcpy(a_lg, usr_buf, 8);
-			return 0;
 		}
+
+	memcpy(a_lg, usr_buf, 8);
+	return 0;
 
 	}  
 	else
