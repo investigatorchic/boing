@@ -371,6 +371,52 @@ sys_clear_lock(struct thread *td, struct clear_lock_args *uap)
 int
 sys_check_lock(struct thread *td, struct check_lock_args *uap)
 {
+	int error = EINVAL;
+        char usr_buf[256];
+	size_t copied = 0;
+	struct lock_group_names *found = NULL;
+	struct lock_name *lock = NULL;
+
+        printf("sys_check_lock\n");
+
+        memset(usr_buf, 0, 256);
+        if ((error = copyinstr(uap->name, &usr_buf, 255, &copied))){
+                return (error);
+	}
+        usr_buf[255] = 0;
+
+        printf("check name=%s\n", usr_buf);
+
+	mtx_lock(&lgname_lock);
+
+	found = find_lgnames(td->td_proc->lockgroupname);
+	if (found) {
+		printf("found lgname in lg list\n");
+		lock = find_lock(found->lname_root, usr_buf);
+		if (lock) {
+			printf("found lockname in lockname list for this lg\n");
+			if ((td->td_ucred->cr_uid == 0) || (lock->perms == 0) || (lock->perms && (lock->heldby == td->td_proc->p_pid))) {
+				printf("permissions look ok to access the lock\n");
+				/* owned: 0=we dont hold it, nonzero=we hold it */
+				if(mtx_owned(&(lock->mutex)) != 0) {
+					mtx_unlock(&lgname_lock);
+					return 1;
+				} 
+				/* trylock: 0=someone else holds it, nonzero=noone was holding it */
+				if(mtx_trylock(&(lock->mutex)) == 0) {
+					/* lock is set by someone else */
+					mtx_unlock(&lgname_lock);
+					return 1;
+				}
+				/* we managed to grab it, which meant no one was holding it, release it and return zero */
+				mtx_unlock(&(lock->mutex));
+				mtx_unlock(&lgname_lock);
+				return 0;
+			}
+		}
+	}
+
+	mtx_lock(&lgname_lock);
 	printf("sys_check_lock");
         return(EPERM);
 }
