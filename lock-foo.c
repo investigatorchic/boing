@@ -332,9 +332,40 @@ sys_set_lock(struct thread *td, struct set_lock_args *uap)
 
 int
 sys_clear_lock(struct thread *td, struct clear_lock_args *uap)
-{	
-	printf("sys_clear_lock");
-        return(EPERM);
+{
+
+	int error = EINVAL;
+	char usr_buf[256];
+	size_t copied = 0;
+	struct lock_group_names *found = NULL;
+	struct lock_name *lock = NULL;
+
+	memset(usr_buf, 0, 256);
+	if ((error = copyinstr(uap->name, &usr_buf, 255, &copied))){
+               return (error);
+       }
+
+       usr_buf[255] = 0;
+       mtx_lock(&lgname_lock);
+
+       found = find_lgnames(td->td_proc->lockgroupname);
+       if (found) {
+               printf("Found our group in the global list\n");
+               lock = find_lock(found->lname_root, usr_buf);
+               if (lock) {
+                       printf("Found the given lock in the group\n");
+                       if (mtx_owned(&(lock->mutex))) {
+                               printf("We own it, so we'll release it\n");
+                               mtx_unlock(&(lock->mutex));
+                               mtx_unlock(&lgname_lock);
+                               return 0;
+                       }
+                       printf("We don't own the lock, so we won't release it\n");
+               }
+       }
+       mtx_unlock(&lgname_lock);
+       printf("sys_clear_lock");
+       return(EPERM);	
 }
 
 int
