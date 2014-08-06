@@ -18,7 +18,7 @@ static struct mtx lgname_lock;
 int 
 valid(struct set_lgname_args *uap)
 {
-	return uap->lgn!=NULL && uap->pid > 0 && uap->pid < PID_MAX; 
+	return uap->lgn!=NULL && uap->pid >= 0 && uap->pid < PID_MAX; 
 }
 
 struct lock_group_names *
