@@ -424,6 +424,61 @@ sys_check_lock(struct thread *td, struct check_lock_args *uap)
 int
 sys_destroy_lock(struct thread *td, struct destroy_lock_args *uap)
 {
+	int error = EINVAL;
+        char usr_buf[256];
+	size_t copied = 0;
+	struct lock_group_names *found = NULL;
+	struct lock_name *lock = NULL;
+
+        printf("sys_destroy_lock\n");
+
+        memset(usr_buf, 0, 256);
+        if ((error = copyinstr(uap->name, &usr_buf, 255, &copied)))
+                return (error);
+        usr_buf[255] = 0;
+
+        printf("destroy name=%s\n", usr_buf);
+
+	mtx_lock(&lgname_lock);
+
+        found = find_lgnames(td->td_proc->lockgroupname);
+        if (found) {
+		printf("Found the groupname in the global list\n");
+                lock = find_lock(found->lname_root, usr_buf);
+                if (lock) {
+			printf("Found the given lock within the group\n");
+                        if ((td->td_ucred->cr_uid == 0) || (lock->perms == 0) || (lock->perms && (lock->heldby == td->td_proc->p_pid))) {
+				struct lock_name *found_locks = found->lname_root;
+
+				printf("Permissions look ok, acquiring lock before destroying it\n");
+
+				mtx_unlock(&lgname_lock); /* dont deadlock */
+                                mtx_lock(&(lock->mutex));
+				mtx_lock(&lgname_lock);
+
+				printf("Got it.. destroying it\n");
+
+				if (found->lname_root == lock) {
+					/* its the first one */
+					mtx_destroy(&(lock->mutex)); /* todo, what happens if there's another thread blocked on it? */
+					found->lname_root = NULL;
+					mtx_unlock(&lgname_lock);
+					free(lock, M_LOCKER_FOO);
+					free(lock->lk_name, M_LOCKER_FOO);
+					return 0;
+				}
+				for( ; found_locks->next != lock ; found_locks = found_locks->next) ;
+				found_locks->next = NULL;
+				mtx_destroy(&(lock->mutex));
+				mtx_unlock(&lgname_lock);
+				free(lock->lk_name, M_LOCKER_FOO);
+				free(lock, M_LOCKER_FOO);
+				return 0;
+                        }
+                }
+        }
+
+	mtx_unlock(&lgname_lock);
 	printf("sys_destroy_lock");
         return(EPERM);
 }
