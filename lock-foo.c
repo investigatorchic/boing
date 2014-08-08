@@ -10,7 +10,7 @@
 #include <sys/mutex.h>
 #include "definitions-bar.h"
 
-MALLOC_DEFINE(M_LOCKER_FOO, "locker", "a kernel level locking mechanism");
+MALLOC_DEFINE(M_LOCKER_FOO, "locker", "a locking gadget for use inside the kernel");
 
 static struct lock_group_names *lgnames_root = NULL;
 static struct mtx lgname_lock;
@@ -107,20 +107,20 @@ struct lock_name
    sys_set_lgname
 
  DESC
-   set the lockgroup name for the given process.
-   lockgroup is stored as part of the thread struct in sys/proc.h
+   set the lockgroup name for a particular process.
+   lockgroup is stored within the thread struct in sys/proc.h
 
  CONDITIONS
-   1. lgn is at most 8 characters
-   2. inherited by children (by virtue of being stored in the thread struct)
+   1. lgname is at most 8 characters
+   2. inherited by all child proceses (b/c it's stored in the thread struct)
    3. If not root:
-        a. You may set your lgn to an existing lgn if you created that lgn
-        b. If an lgn doesnt alread exist, you can create it
-        c. You may set the lgn of any process that you own
+        a. Allowed to set your lgnanme to an existing lgname if you created that 	lgname
+        b. If an lgname doesn't exist already, ok to create it
+        c. Allowed to set the lgname of any process that you own
    4. If you are root:
-        a. You may set your lgn to anything you want even an existing one not owned by you
-        b. You may set the lgn of any process, even if it already has one set
-   5. if pid is zero, it means 'set lgn for the current process'
+        a. Allowed to set your lgname to anything you want, even an existing one 	not owned by you
+        b. Allowed to set the lgn of any process, even if it already has one set
+   5. if pid is zero, it means 'set lgname for the current process'
 */
 
 int
@@ -256,6 +256,7 @@ sys_create_lock(struct thread *td, struct create_lock_args *uap)
 	else
 	{
 		printf("else");
+		for (present_lock = found->lname_root ; present_lock->next ; present_lock = present_lock->next); 
 		present_lock->next = malloc(sizeof(struct lock_name), M_LOCKER_FOO, M_NOWAIT);
 		printf("if present_lock->next == NULL");
 		if (present_lock->next == NULL) { 
