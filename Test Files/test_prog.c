@@ -61,17 +61,17 @@ int
 main(int argc, char *argv[])
 {
 	char* test_name = argv[1];
-	printf("test_name=%s", test_name);
-	if (test_name == "destroy_nonexist_lock"){
+	printf("test_name=%s\n", test_name);
+	if (strcmp("destroy_nonexist_lock", test_name)==0) {
 	destroy_nonexist_lock(argv[2], argv[3], atoi(argv[4]));
 	return (0);
 	}
-	else if (test_name == "unlock_twice"){
+	else if (strcmp("unlock_twice", test_name)==0){
 	printf("unlock_twice\n");
  	unlock_twice(argv[2], argv[3], atoi(argv[4]), atoi(argv[5]), atoi(argv[6]));
 	return (0);	
 	}
-	else if (test_name == "perm_test"){
+	else if (strcmp("perm_test", test_name)==0){
 	printf("perm_test\n");
 	perm_test(argv[2], argv[3], argv[4]);
 	return (0);
