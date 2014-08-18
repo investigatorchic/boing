@@ -40,6 +40,7 @@ unlock_twice(char *lk_name, char *lgname, int pid, int perms, int slpflag){
 
 int
 perm_test(char *lk_name1, char *lk_name2, char *lk_name3){
+	set_lgname("lgname", 0);
 	assert(create_lock(lk_name1, 1)==0);
 	assert(create_lock(lk_name2, 0)==0);
 	assert(create_lock(lk_name3, 1)==0);
